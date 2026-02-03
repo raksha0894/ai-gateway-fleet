@@ -1,0 +1,14 @@
+# Private keys
+keys/cosign.key
+
+# Generated artifacts
+ci/out/
+gateway/cache/
+client/state/
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+*.log

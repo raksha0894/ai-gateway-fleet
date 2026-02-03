@@ -1,0 +1,25 @@
+services:
+  dashboard:
+    build: ./dashboard
+    ports:
+      - "8080:8080"
+
+  gateway:
+    build: ./gateway
+    environment:
+      - DASHBOARD_URL=http://dashboard:8080
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./gateway/cache:/app/cache
+    depends_on:
+      - dashboard
+
+  robot:
+    build: ./client
+    environment:
+      - GATEWAY_URL=http://gateway:8081
+    volumes:
+      - ./client/state:/app/state
+    depends_on:
+      - gateway
