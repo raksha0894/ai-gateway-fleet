@@ -14,6 +14,9 @@ services:
       - DASHBOARD_URL=http://dashboard:8080
       - OTA_SOURCE_URL=http://dashboard:8080/ota
       - OTA_POLL_SECONDS=30
+      - AUTO_FLUSH=true
+      - FLUSH_INTERVAL_SECONDS=5
+      - FLUSH_BATCH_SIZE=200
     ports:
       - "8081:8081"
     volumes:

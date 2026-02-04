@@ -4,6 +4,7 @@ import sqlite3
 import asyncio
 import hashlib
 import subprocess
+import asyncio
 from datetime import datetime, timezone
 import httpx
 from fastapi import FastAPI, Request, HTTPException
@@ -24,8 +25,15 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 OTA_SOURCE_URL = os.getenv("OTA_SOURCE_URL", "http://dashboard:8080/ota")
 POLL_SECONDS = int(os.getenv("OTA_POLL_SECONDS", "30"))
 
-# ---- Cosign verification (gateway-side) ----
+# ---- Cosign verification ----
 COSIGN_PUB = "/app/cosign.pub"
+
+# ---- Autoflush metrics enablement ----
+AUTO_FLUSH = os.getenv("AUTO_FLUSH", "false").lower() == "true"
+FLUSH_INTERVAL_SECONDS = int(os.getenv("FLUSH_INTERVAL_SECONDS", "5"))
+FLUSH_BATCH_SIZE = int(os.getenv("FLUSH_BATCH_SIZE", "200"))
+
+_flush_lock = asyncio.Lock()
 
 def db_conn():
     # check_same_thread False is safe here because we open per request
@@ -72,36 +80,65 @@ async def metrics(req: Request):
 
 @app.post("/flush")
 async def flush():
-    """
-    Sends buffered metrics to dashboard. If dashboard is down, nothing is deleted.
-    """
-    conn = db_conn()
-    cur = conn.execute("SELECT id, payload FROM metrics ORDER BY id LIMIT 200")
-    rows = cur.fetchall()
+     return await flush_once()
 
-    if not rows:
-        conn.close()
-        return {"ok": True, "sent": 0, "remaining": 0}
+async def flush_once(limit: int = None):
+    limit = limit or FLUSH_BATCH_SIZE
 
-    sent = 0
-    async with httpx.AsyncClient(timeout=5) as client:
-        for mid, payload_json in rows:
-            payload = json.loads(payload_json)
-            try:
-                r = await client.post(f"{DASHBOARD_URL}/ingest", json=payload)
-                r.raise_for_status()
-                conn.execute("DELETE FROM metrics WHERE id = ?", (mid,))
+    async with _flush_lock:  # prevents auto + manual flush overlapping
+        conn = db_conn()
+        try:
+            rows = conn.execute(
+                "SELECT id, payload FROM metrics ORDER BY id LIMIT ?",
+                (limit,)
+            ).fetchall()
+
+            remaining_before = conn.execute("SELECT COUNT(*) FROM metrics").fetchone()[0]
+            if not rows:
+                return {"ok": True, "sent": 0, "remaining": remaining_before}
+
+            sent_ids = []
+            async with httpx.AsyncClient(timeout=5) as client:
+                for mid, payload_json in rows:
+                    payload = json.loads(payload_json)
+                    r = await client.post(f"{DASHBOARD_URL}/ingest", json=payload)
+                    r.raise_for_status()
+                    sent_ids.append(mid)
+
+            if sent_ids:
+                conn.executemany("DELETE FROM metrics WHERE id = ?", [(i,) for i in sent_ids])
                 conn.commit()
-                sent += 1
-            except Exception:
-                # stop flushing on first failure; keep remaining buffered
-                break
 
-    cur = conn.execute("SELECT COUNT(*) FROM metrics")
-    remaining = cur.fetchone()[0]
-    conn.close()
+            remaining_after = conn.execute("SELECT COUNT(*) FROM metrics").fetchone()[0]
+            return {"ok": True, "sent": len(sent_ids), "remaining": remaining_after}
 
-    return {"ok": True, "sent": sent, "remaining": remaining}
+        except Exception as e:
+            # If anything fails, keep rows (don’t delete)
+            remaining = conn.execute("SELECT COUNT(*) FROM metrics").fetchone()[0]
+            return {"ok": False, "sent": 0, "remaining": remaining, "error": str(e)}
+        finally:
+            conn.close()
+            
+async def auto_flush_loop():
+    while True:
+        try:
+            res = await flush_once()
+            # log only when something happened or there was an error
+            if res.get("sent", 0) > 0:
+                print(f"[gateway] auto-flush sent={res['sent']} remaining={res['remaining']}", flush=True)
+            elif res.get("ok") is False:
+                print(f"[gateway] auto-flush failed: {res.get('error')}", flush=True)
+        except Exception as e:
+            print(f"[gateway] auto-flush loop error: {e}", flush=True)
+
+        await asyncio.sleep(FLUSH_INTERVAL_SECONDS)
+
+
+@app.on_event("startup")
+async def start_auto_flush():
+    if AUTO_FLUSH:
+        asyncio.create_task(auto_flush_loop())
+        print("[gateway] auto-flush enabled", flush=True)
 
 @app.get("/manifest")
 def get_manifest():
