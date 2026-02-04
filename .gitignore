@@ -1,10 +1,18 @@
 # Private keys
 keys/cosign.key
 
+# SQLite runtime files
+*.db
+*.db-wal
+*.db-shm 
+
 # Generated artifacts
 ci/out/
 gateway/cache/
 client/state/
+
+# Keys / secrets
+**/cosign.pub
 
 # Python
 __pycache__/
@@ -13,6 +21,9 @@ __pycache__/
 # Environment files
 .env
 .env.*
+
+# OTA files
+*/ota/
 
 # Logs
 *.log

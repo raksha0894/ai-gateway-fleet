@@ -1,6 +1,9 @@
 import os
 import json
 import sqlite3
+import asyncio
+import hashlib
+import subprocess
 from datetime import datetime, timezone
 import httpx
 from fastapi import FastAPI, Request, HTTPException
@@ -15,6 +18,14 @@ DB_PATH = os.path.join(DATA_DIR, "metrics.db")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 CACHE_DIR = "/app/cache"
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+# ---- Central OTA source (dashboard) ----
+OTA_SOURCE_URL = os.getenv("OTA_SOURCE_URL", "http://dashboard:8080/ota")
+POLL_SECONDS = int(os.getenv("OTA_POLL_SECONDS", "30"))
+
+# ---- Cosign verification (gateway-side) ----
+COSIGN_PUB = "/app/cosign.pub"
 
 def db_conn():
     # check_same_thread False is safe here because we open per request
@@ -47,11 +58,17 @@ async def metrics(req: Request):
     ts = datetime.now(timezone.utc).isoformat()
 
     conn = db_conn()
-    conn.execute(
-        "INSERT INTO metrics(ts, payload) VALUES(?, ?)",
-        (ts, json.dumps(data)),
-    )
-    conn.commit()
+    try:
+        conn.execute(
+            "INSERT INTO metrics(ts, payload) VALUES(?, ?)",
+            (ts, json.dumps(data)),
+        )
+        conn.commit()
+        buffered = conn.execute("SELECT COUNT(*) FROM metrics").fetchone()[0]
+    finally:
+        conn.close()
+
+    return {"ok": True, "buffered": buffered}
 
 @app.post("/flush")
 async def flush():
@@ -99,3 +116,100 @@ def get_artifact(name: str):
     if not os.path.exists(p):
         raise HTTPException(404, "artifact not found")
     return FileResponse(p)
+
+
+
+# -----------------------------
+# OTA: helpers
+# -----------------------------
+def sha256_bytes(b: bytes) -> str:
+    h = hashlib.sha256()
+    h.update(b)
+    return h.hexdigest()
+
+
+def cosign_verify_blob(artifact_path: str, bundle_path: str):
+    subprocess.check_call(
+        [
+            "cosign",
+            "verify-blob",
+            "--key",
+            COSIGN_PUB,
+            "--bundle",
+            bundle_path,
+            artifact_path,
+        ]
+    )
+
+
+# -----------------------------
+# OTA: poll + sync (central -> gateway cache)
+# -----------------------------
+async def ota_sync_once():
+    async with httpx.AsyncClient(timeout=20) as client:
+        # 1) Fetch manifest from central
+        r = await client.get(f"{OTA_SOURCE_URL}/manifest.json")
+        r.raise_for_status()
+        manifest = r.json()
+
+        new_version = manifest["version"]
+        artifact = manifest["artifact"]
+        bundle = manifest["bundle"]
+        expected_sha = manifest["sha256"]
+
+        # 2) If cached version matches, skip
+        cached_manifest_path = os.path.join(CACHE_DIR, "manifest.json")
+        if os.path.exists(cached_manifest_path):
+            try:
+                cached = json.load(open(cached_manifest_path))
+                if cached.get("version") == new_version:
+                    return
+            except Exception:
+                pass
+
+        # 3) Download artifact + bundle
+        art_resp = await client.get(f"{OTA_SOURCE_URL}/{artifact}")
+        art_resp.raise_for_status()
+        bun_resp = await client.get(f"{OTA_SOURCE_URL}/{bundle}")
+        bun_resp.raise_for_status()
+
+        # 4) Verify checksum
+        actual_sha = sha256_bytes(art_resp.content)
+        if actual_sha != expected_sha:
+            raise RuntimeError("gateway OTA sync: checksum mismatch")
+
+        # 5) Write temp files
+        art_tmp = os.path.join(CACHE_DIR, artifact + ".tmp")
+        bun_tmp = os.path.join(CACHE_DIR, bundle + ".tmp")
+        man_tmp = os.path.join(CACHE_DIR, "manifest.json.tmp")
+
+        with open(art_tmp, "wb") as f:
+            f.write(art_resp.content)
+        with open(bun_tmp, "wb") as f:
+            f.write(bun_resp.content)
+
+        # 6) Verify signature (gateway-side)
+        cosign_verify_blob(art_tmp, bun_tmp)
+
+        # 7) Atomic replace into cache
+        os.replace(art_tmp, os.path.join(CACHE_DIR, artifact))
+        os.replace(bun_tmp, os.path.join(CACHE_DIR, bundle))
+        with open(man_tmp, "w") as f:
+            json.dump(manifest, f)
+        os.replace(man_tmp, cached_manifest_path)
+
+        print(f"[gateway] OTA cache updated to version {new_version}", flush=True)
+
+
+async def ota_poll_loop():
+    while True:
+        try:
+            await ota_sync_once()
+        except Exception as e:
+            print("[gateway] OTA poll failed:", e, flush=True)
+        await asyncio.sleep(POLL_SECONDS)
+
+
+@app.on_event("startup")
+async def start_ota_poll():
+    asyncio.create_task(ota_poll_loop())
