@@ -10,5 +10,9 @@ client/state/
 __pycache__/
 *.pyc
 
+# Environment files
+.env
+.env.*
+
 # Logs
 *.log

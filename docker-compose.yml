@@ -12,6 +12,10 @@ services:
       - DASHBOARD_URL=http://dashboard:8080
     ports:
       - "8081:8081"
+    volumes:
+      - ./gateway/cache:/app/cache:ro
+      - ./gateway/data:/app/data
+      - ./gateway/cosign.pub:/app/cosign.pub:ro
     depends_on:
       - dashboard
 
@@ -20,5 +24,8 @@ services:
     build: ./client
     environment:
       - GATEWAY_URL=http://gateway:8081
+    volumes:
+      - ./client/cosign.pub:/app/cosign.pub:ro
+      - ./client/state:/app/state
     depends_on:
       - gateway
