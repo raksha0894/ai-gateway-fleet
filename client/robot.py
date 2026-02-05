@@ -5,10 +5,25 @@ import random
 GATEWAY = os.getenv("GATEWAY_URL", "http://gateway:8081")
 
 STATE = "/app/state"
+COSIGN_PUB = os.getenv("COSIGN_PUB", "/app/cosign.pub")
+DOWNLOAD_TIMEOUT = float(os.getenv("DOWNLOAD_TIMEOUT", "30"))
+MANIFEST_TIMEOUT = float(os.getenv("MANIFEST_TIMEOUT", "5"))
+
 CUR = f"{STATE}/current"
 NEW = f"{STATE}/new"
 OLD = f"{STATE}/old"
 os.makedirs(STATE, exist_ok=True)
+
+OTA_POLL_SECONDS = int(os.getenv("OTA_POLL_SECONDS", "30"))
+METRICS_SECONDS = int(os.getenv("METRICS_SECONDS", "10"))
+
+# Track versions that triggered a rollback during this session
+FAILED_VERSIONS = set()
+
+
+def log(msg: str) -> None:
+    print(msg, flush=True)
+
 
 def sha256_file(path: str) -> str:
     h = hashlib.sha256()
@@ -17,40 +32,96 @@ def sha256_file(path: str) -> str:
             h.update(chunk)
     return h.hexdigest()
 
-def verify_blob(artifact_path: str, bundle_path: str):
-    subprocess.check_call([
-        "cosign", "verify-blob",
-        "--key", "/app/cosign.pub",
-        "--bundle", bundle_path,
-        artifact_path
-    ])
 
-def install_tarball(tgz_path: str):
-    # stage NEW
-    if os.path.exists(NEW):
-        subprocess.call(["rm", "-rf", NEW])
+def current_version() -> str:
+    ver_file = os.path.join(CUR, "version.txt")
+    if os.path.exists(ver_file):
+        return open(ver_file, "r", encoding="utf-8").read().strip()
+    return "0.0.0"
+
+
+def write_current_version(v: str) -> None:
+    os.makedirs(CUR, exist_ok=True)
+    open(os.path.join(CUR, "version.txt"), "w", encoding="utf-8").write(v)
+
+
+def verify_blob(artifact_path: str, bundle_path: str) -> None:
+    # Requires cosign installed in robot container
+    subprocess.check_call(
+        [
+            "cosign",
+            "verify-blob",
+            "--key",
+            COSIGN_PUB,
+            "--bundle",
+            bundle_path,
+            artifact_path,
+        ]
+    )
+
+
+def safe_rmtree(path: str) -> None:
+    if os.path.exists(path):
+        subprocess.call(["rm", "-rf", path])
+
+
+def install_tarball(tgz_path: str) -> None:
+    # 1. Prepare NEW directory
+    safe_rmtree(NEW)
     os.makedirs(NEW, exist_ok=True)
 
-    with tarfile.open(tgz_path) as t:
-        t.extractall(NEW)
+    log(f"DEBUG: Extracting {tgz_path}...")
+    with tarfile.open(tgz_path, "r:gz") as t:
+        # filter='data' stops the crash/loop at line 35
+        t.extractall(NEW, filter='data') 
 
-    # basic health check: must contain app.sh
-    if not os.path.exists(f"{NEW}/app.sh"):
-        raise RuntimeError("healthcheck failed: app.sh missing")
-
-    # atomic-ish switch with rollback folder
-    if os.path.exists(OLD):
-        subprocess.call(["rm", "-rf", OLD])
+    # 2. ACTIVATE (Move to CURRENT so we have an OLD to roll back to)
+    log("DEBUG: Activating version (Moving NEW -> CURRENT)...")
+    safe_rmtree(OLD)
     if os.path.exists(CUR):
         os.rename(CUR, OLD)
     os.rename(NEW, CUR)
 
-def try_update():
-    m = httpx.get(f"{GATEWAY}/manifest", timeout=5).json()
+    # 3. THE LIVE TEST (This is what you just ran manually)
+    app_sh_cur = os.path.join(CUR, "app.sh")
+    try:
+        log(f"DEBUG: Running self-test at {app_sh_cur}")
+        # MUST use check_call to trigger the 'except' block on failure
+        subprocess.check_call(["bash", app_sh_cur, "--self-test"], timeout=10)
+        log("SUCCESS: Healthcheck passed.")
+    except subprocess.CalledProcessError:
+        # 4. PERFORM ROLLBACK
+        FAILED_VERSIONS.add(client.get(f"{GATEWAY}/manifest", timeout=MANIFEST_TIMEOUT).json()["version"])
+        log("CRITICAL: Self-test failed! TRIGGERING ROLLBACK...")
+        if os.path.exists(OLD):
+            safe_rmtree(CUR)
+            os.rename(OLD, CUR)
+            log("ROLLBACK COMPLETE: Restored previous version.")
+        else:
+            log("ROLLBACK FAILED: No OLD version found.")
+        
+        # Raise this so version.txt is NOT updated
+        raise RuntimeError("Update failed healthcheck and was rolled back.")
+
+def rollback_to_old() -> bool:
+    if not os.path.exists(OLD):
+        return False
+    safe_rmtree(CUR)
+    os.rename(OLD, CUR)
+    return True
+
+
+def try_update(client: httpx.Client) -> str:
+    m = client.get(f"{GATEWAY}/manifest", timeout=MANIFEST_TIMEOUT).json()
 
     version = m["version"]
     if version == current_version():
         return version
+    
+    if version in FAILED_VERSIONS:
+        # Skip the update silently to avoid log spam
+        return current_version()
+
     artifact = m["artifact"]
     bundle = m["bundle"]
     expected_sha = m["sha256"]
@@ -59,62 +130,72 @@ def try_update():
     bun_path = f"{STATE}/{bundle}"
 
     # download artifact + bundle
-    r = httpx.get(f"{GATEWAY}/artifact/{artifact}", timeout=15)
+    r = client.get(f"{GATEWAY}/artifact/{artifact}", timeout=DOWNLOAD_TIMEOUT)
     r.raise_for_status()
     open(art_path, "wb").write(r.content)
 
-    r = httpx.get(f"{GATEWAY}/artifact/{bundle}", timeout=15)
+    r = client.get(f"{GATEWAY}/artifact/{bundle}", timeout=DOWNLOAD_TIMEOUT)
     r.raise_for_status()
     open(bun_path, "wb").write(r.content)
 
-    # checksum
+    # checksum and signature
     if sha256_file(art_path) != expected_sha:
         raise RuntimeError("checksum mismatch")
 
-    # signature verification
     verify_blob(art_path, bun_path)
 
-    # install
+    # This call now handles directory swapping and rollback internally
     install_tarball(art_path)
+
+    # persist version only after successful install
+    write_current_version(version)
+    log(f"UPDATED TO {version}")
 
     return version
 
-def current_version():
-    ver_file = f"{CUR}/version.txt"
-    if os.path.exists(ver_file):
-        return open(ver_file).read().strip()
-    return "0.0.0"
 
-def write_version(v: str):
-    os.makedirs(CUR, exist_ok=True)
-    open(f"{CUR}/version.txt", "w").write(v)
-
+# ---- main loop ----
 version = current_version()
+last_ota = 0.0
+last_metrics = 0.0
+backoff = 2
+max_backoff = 60
+
+client = httpx.Client()
+
 while True:
-    # try OTA update
-    try:
-        newv = try_update()
-        if newv != version:
-            version = newv
-            write_version(version)
-            print("UPDATED TO", version)
-    except Exception as e:
-        print("update skipped:", e)
+    now = time.time()
 
-    # send metrics
-    payload = {
-        "robot_id": "robot-1",
-        "version": version,
-        "cpu": round(random.random()*100, 2),
-        "mem": round(random.random()*100, 2),
-        "healthy": True
-    }
-    try:
-        r=httpx.post(f"{GATEWAY}/metrics", json=payload, timeout=2)
-        print("metrics sent:", r.status_code, payload)
-    except Exception as e:
-        print("metrics failed:", e)
+    if now - last_ota >= OTA_POLL_SECONDS:
+        last_ota = now
+        try:
+            newv = try_update(client)
+            if newv != version:
+                version = newv
+            backoff = 2
+        except Exception as e:
+            log(f"OTA failed: {e}")
+            FAILED_VERSIONS.add(version)
+            if rollback_to_old():
+                version = current_version()
+                log("Emergency manual rollback applied.")
+            
+            time.sleep(backoff)
+            backoff = min(max_backoff, backoff * 2)
 
-    time.sleep(10)
+    if now - last_metrics >= METRICS_SECONDS:
+        last_metrics = now
+        payload = {
+            "robot_id": "robot-1",
+            "version": version,
+            "cpu": round(random.random() * 100, 2),
+            "mem": round(random.random() * 100, 2),
+            "healthy": True,
+        }
+        try:
+            r = client.post(f"{GATEWAY}/metrics", json=payload, timeout=2)
+            log(f"metrics sent: {r.status_code} {payload}")
+        except Exception as e:
+            log(f"metrics failed: {e}")
 
-
+    time.sleep(0.2)

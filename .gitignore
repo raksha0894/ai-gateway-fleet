@@ -8,6 +8,8 @@ keys/cosign.key
 
 # Generated artifacts
 ci/out/
+ci/app/FAIL
+ci/app/version.txt
 gateway/cache/
 client/state/
 
@@ -24,6 +26,7 @@ __pycache__/
 
 # OTA files
 */ota/
+
 
 # Logs
 *.log

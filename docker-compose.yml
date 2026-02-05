@@ -31,6 +31,9 @@ services:
     build: ./client
     environment:
       - GATEWAY_URL=http://gateway:8081
+      - OTA_POLL_SECONDS=30
+      - PYTHONUNBUFFERED=1
+      - METRICS_SECONDS=10
     volumes:
       - ./client/cosign.pub:/app/cosign.pub:ro
       - ./client/state:/app/state
