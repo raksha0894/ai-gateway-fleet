@@ -46,6 +46,7 @@ echo "[build_ota] OUT=$OUT"
 
 # Sync packaged version
 echo "$VER" > "$SRC/version.txt" 
+echo "$VER" > "$ROOT/scripts/VERSION" 
 
 # Build tarball
 tar -C "$SRC" -czf "$OUT/$ART" .
