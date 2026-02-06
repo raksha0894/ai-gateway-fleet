@@ -19,7 +19,7 @@ services:
       - AUTO_FLUSH=true
       - FLUSH_INTERVAL_SECONDS=5
       - FLUSH_BATCH_SIZE=200
-      - CACHE_KEEP_VERSIONS=2
+      - CACHE_KEEP_LAST=2
       - CACHE_MAX_MB=200
       - CACHE_GC_INTERVAL=60
     ports:
