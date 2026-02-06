@@ -11,7 +11,9 @@ services:
 
   gateway:
     image: ai-fleet/gateway:${VERSION}
-    build: ./gateway
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
     environment:
       - DASHBOARD_URL=http://dashboard:8080
       - OTA_SOURCE_URL=http://dashboard:8080/ota
@@ -36,7 +38,9 @@ services:
 
   robot:
     image: ai-fleet/robot:${VERSION}
-    build: ./client
+    build:
+      context: .
+      dockerfile: client/Dockerfile
     environment:
       - GATEWAY_URL=http://gateway:8081
       - OTA_POLL_SECONDS=30

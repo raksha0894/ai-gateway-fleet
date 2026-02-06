@@ -12,6 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse
 from cache_manager import gc_cache_once
+from common.downloader import download_with_resume
 
 app = FastAPI()
 
@@ -161,9 +162,11 @@ def get_artifact(name: str):
 # -----------------------------
 # OTA: helpers
 # -----------------------------
-def sha256_bytes(b: bytes) -> str:
+def sha256_file(path):
     h = hashlib.sha256()
-    h.update(b)
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
     return h.hexdigest()
 
 
@@ -206,39 +209,39 @@ async def ota_sync_once():
             except Exception:
                 pass
 
-        # 3) Download artifact + bundle
-        art_resp = await client.get(f"{OTA_SOURCE_URL}/{artifact}")
-        art_resp.raise_for_status()
-        bun_resp = await client.get(f"{OTA_SOURCE_URL}/{bundle}")
-        bun_resp.raise_for_status()
+        # 3) Download artifact + bundle (with resume)
+
+        art_path = os.path.join(CACHE_DIR, artifact)
+        bun_path = os.path.join(CACHE_DIR, bundle)
+
+        download_with_resume(
+            f"{OTA_SOURCE_URL}/{artifact}",
+            art_path,
+            timeout=60
+        )
+
+        download_with_resume(
+            f"{OTA_SOURCE_URL}/{bundle}",
+            bun_path,
+            timeout=60
+        )
 
         # 4) Verify checksum
-        actual_sha = sha256_bytes(art_resp.content)
+        actual_sha = sha256_file(art_path)
         if actual_sha != expected_sha:
             raise RuntimeError("gateway OTA sync: checksum mismatch")
 
-        # 5) Write temp files
-        art_tmp = os.path.join(CACHE_DIR, artifact + ".tmp")
-        bun_tmp = os.path.join(CACHE_DIR, bundle + ".tmp")
-        man_tmp = os.path.join(CACHE_DIR, "manifest.json.tmp")
+        # 5) Verify signature (gateway-side)
+        cosign_verify_blob(art_path, bun_path)
 
-        with open(art_tmp, "wb") as f:
-            f.write(art_resp.content)
-        with open(bun_tmp, "wb") as f:
-            f.write(bun_resp.content)
-
-        # 6) Verify signature (gateway-side)
-        cosign_verify_blob(art_tmp, bun_tmp)
-
-        # 7) Atomic replace into cache
-        os.replace(art_tmp, os.path.join(CACHE_DIR, artifact))
-        os.replace(bun_tmp, os.path.join(CACHE_DIR, bundle))
+        # 6) Write manifest atomically
+        cached_manifest_path = os.path.join(CACHE_DIR, "manifest.json")
+        man_tmp = cached_manifest_path + ".tmp"
         with open(man_tmp, "w") as f:
             json.dump(manifest, f)
         os.replace(man_tmp, cached_manifest_path)
 
         print(f"[gateway] OTA cache updated to version {new_version}", flush=True)
-
 
 async def ota_poll_loop():
     while True:

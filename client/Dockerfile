@@ -1,6 +1,8 @@
 FROM python:3.12-slim
 
 WORKDIR /app
+COPY client/robot.py /app/robot.py
+COPY common /app/common
 
 # Install curl for cosign download
 RUN apt-get update && apt-get install -y curl ca-certificates bash && rm -rf /var/lib/apt/lists/* \
@@ -10,9 +12,8 @@ RUN apt-get update && apt-get install -y curl ca-certificates bash && rm -rf /va
 
 RUN pip install --no-cache-dir httpx
 
-COPY robot.py /app/robot.py
 # Provide the public key to verify signatures
-COPY cosign.pub /app/cosign.pub
+COPY ./keys/cosign.pub /app/cosign.pub
 
 # Unbuffered logs so "docker compose logs -f robot" shows output immediately
 ENV PYTHONUNBUFFERED=1

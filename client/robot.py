@@ -1,6 +1,7 @@
 import os, time, json, hashlib, tarfile, subprocess
 import httpx
 import random
+from common.downloader import download_with_resume
 
 GATEWAY = os.getenv("GATEWAY_URL", "http://gateway:8081")
 
@@ -130,13 +131,8 @@ def try_update(client: httpx.Client) -> str:
     bun_path = f"{STATE}/{bundle}"
 
     # download artifact + bundle
-    r = client.get(f"{GATEWAY}/artifact/{artifact}", timeout=DOWNLOAD_TIMEOUT)
-    r.raise_for_status()
-    open(art_path, "wb").write(r.content)
-
-    r = client.get(f"{GATEWAY}/artifact/{bundle}", timeout=DOWNLOAD_TIMEOUT)
-    r.raise_for_status()
-    open(bun_path, "wb").write(r.content)
+    download_with_resume(f"{GATEWAY}/artifact/{artifact}", art_path, timeout=30)
+    download_with_resume(f"{GATEWAY}/artifact/{bundle}", bun_path, timeout=30)
 
     # checksum and signature
     if sha256_file(art_path) != expected_sha:
