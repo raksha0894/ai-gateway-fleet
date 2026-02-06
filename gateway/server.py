@@ -1,4 +1,5 @@
 import os
+import time, shutil
 import json
 import sqlite3
 import asyncio
@@ -6,9 +7,11 @@ import hashlib
 import subprocess
 import asyncio
 from datetime import datetime, timezone
+from pathlib import Path
 import httpx
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse
+from cache_manager import gc_cache_once
 
 app = FastAPI()
 
@@ -20,6 +23,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 CACHE_DIR = "/app/cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
+GC_INTERVAL = int(os.getenv("CACHE_GC_INTERVAL", "300"))  # 5 min
 
 # ---- Central OTA source (dashboard) ----
 OTA_SOURCE_URL = os.getenv("OTA_SOURCE_URL", "http://dashboard:8080/ota")
@@ -154,8 +158,6 @@ def get_artifact(name: str):
         raise HTTPException(404, "artifact not found")
     return FileResponse(p)
 
-
-
 # -----------------------------
 # OTA: helpers
 # -----------------------------
@@ -250,3 +252,16 @@ async def ota_poll_loop():
 @app.on_event("startup")
 async def start_ota_poll():
     asyncio.create_task(ota_poll_loop())
+
+
+@app.on_event("startup")
+async def startup():
+    async def gc_loop():
+        while True:
+            try:
+                gc_cache_once()
+            except Exception as e:
+                print("[gateway] cache GC failed:", e, flush=True)
+            await asyncio.sleep(GC_INTERVAL)
+
+    asyncio.create_task(gc_loop())

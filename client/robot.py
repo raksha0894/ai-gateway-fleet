@@ -162,6 +162,7 @@ backoff = 2
 max_backoff = 60
 
 client = httpx.Client()
+installing = False
 
 while True:
     now = time.time()
@@ -169,16 +170,25 @@ while True:
     if now - last_ota >= OTA_POLL_SECONDS:
         last_ota = now
         try:
+            newv = None
             newv = try_update(client)
             if newv != version:
-                version = newv
-            backoff = 2
+                installing = True
+                try:
+                    version = newv
+                    backoff = 2
+                finally:
+                    installing = False
         except Exception as e:
+
             log(f"OTA failed: {e}")
-            FAILED_VERSIONS.add(version)
-            if rollback_to_old():
-                version = current_version()
-                log("Emergency manual rollback applied.")
+            if newv is not None:
+                FAILED_VERSIONS.add(newv)
+                if rollback_to_old():
+                    version = current_version()
+                    log("Emergency manual rollback applied.")
+            else:
+                log("Gateway unreachable, will retry later")
             
             time.sleep(backoff)
             backoff = min(max_backoff, backoff * 2)
