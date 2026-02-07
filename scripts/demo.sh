@@ -13,6 +13,7 @@ if [[ ! -w "$OTA_DIR" ]]; then
   echo "[demo] ERROR: No write permission on $OTA_DIR"
   echo "Run once:"
   echo "  sudo chown -R \$USER:\$USER ../dashboard"
+  echo "Rerun demo.sh post that."
   exit 1
 fi
 
@@ -32,7 +33,10 @@ if [[ "${1:-}" == "--rebuild" ]]; then
   ./publish_ota.sh
 else
   echo "[demo] Using prebuilt signed artifacts..."
-  cp -f ../ci/out/* ../dashboard/ota/
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  VER="$(tr -d '\r\n\t' < "$ROOT/VERSION")"
+  echo "The update version is $VER"
+  ./publish_ota.sh
 fi
 sleep 5
 
