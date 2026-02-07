@@ -8,8 +8,13 @@ docker compose up -d --build
 sleep 10
 OTA_DIR="$(cd "$(dirname "$0")/../dashboard/ota" && pwd)"
 
-mkdir -p "$OTA_DIR"
-chmod u+rwX "$OTA_DIR"
+# Check write permission
+if [[ ! -w "$OTA_DIR" ]]; then
+  echo "[demo] ERROR: No write permission on $OTA_DIR"
+  echo "Run once:"
+  echo "  sudo chown -R \$USER:\$USER ./dashboard"
+  exit 1
+fi
 
 echo "Simulating WAN offline..."
 docker network disconnect ai-gateway-fleet_wan_net ai-gateway-fleet-gateway-1
