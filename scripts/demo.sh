@@ -20,15 +20,15 @@ if [[ "${1:-}" == "--rebuild" ]]; then
     echo "[demo] COSIGN_PASSWORD not set. Run:"
     echo "  COSIGN_PASSWORD='...' ./demo.sh --rebuild"
     exit 1
-  fi
 
   echo "[demo] Rebuilding + signing OTA artifacts..."
   ./build_ota.sh
   ./publish_ota.sh
-  
   else
+    echo "[demo] Building without signing..."
     DO_SIGN=false ./build_ota.sh
     ./publish_ota.sh
+  fi
 else
   echo "[demo] Using prebuilt signed artifacts..."
   cp -f ../ci/out/* ../dashboard/ota/
