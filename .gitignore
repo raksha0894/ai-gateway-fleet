@@ -7,7 +7,6 @@ keys/cosign.key
 *.db-shm 
 
 # Generated artifacts
-ci/out/
 ci/app/FAIL
 ci/app/version.txt
 gateway/cache/
