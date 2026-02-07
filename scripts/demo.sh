@@ -12,7 +12,7 @@ OTA_DIR="$(cd "$(dirname "$0")/../dashboard/ota" && pwd)"
 if [[ ! -w "$OTA_DIR" ]]; then
   echo "[demo] ERROR: No write permission on $OTA_DIR"
   echo "Run once:"
-  echo "  sudo chown -R \$USER:\$USER ./dashboard"
+  echo "  sudo chown -R \$USER:\$USER ../dashboard"
   exit 1
 fi
 
