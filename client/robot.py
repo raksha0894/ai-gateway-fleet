@@ -183,8 +183,6 @@ while True:
                 if rollback_to_old():
                     version = current_version()
                     log("Emergency manual rollback applied.")
-            else:
-                log("Gateway unreachable, will retry later")
             
             time.sleep(backoff)
             backoff = min(max_backoff, backoff * 2)

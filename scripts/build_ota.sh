@@ -3,26 +3,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Accept version from env, else from file
-VERSION_FILE_1="$ROOT/VERSION"
-VERSION_FILE_2="$ROOT/scripts/VERSION"
-VERSION_FILE_3="$ROOT/ci/app/version.txt"
-
-if [[ -n "${VERSION:-}" ]]; then
-  VER="$VERSION"
-elif [[ -f "$VERSION_FILE_1" ]]; then
-  VER="$(cat "$VERSION_FILE_1" | tr -d ' \n\r')"
-elif [[ -f "$VERSION_FILE_2" ]]; then
-  VER="$(cat "$VERSION_FILE_2" | tr -d ' \n\r')"
-elif [[ -f "$VERSION_FILE_3" ]]; then
-  VER="$(cat "$VERSION_FILE_3" | tr -d ' \n\r')"
-else
-  echo "ERROR: No version file found. Create one of:"
-  echo "  - ./VERSION (preferred)"
-  echo "  - ./scripts/VERSION"
-  echo "  - ./ci/app/version.txt"
-  exit 1
-fi
+# Accept version from VERSION file in the root folder
+VER="$(tr -d '\r\n\t' < "$ROOT/VERSION")"
 
 OUT="$ROOT/ci/out"
 SRC="$ROOT/ci/app"
@@ -45,8 +27,7 @@ echo "[build_ota] SRC=$SRC"
 echo "[build_ota] OUT=$OUT"
 
 # Sync packaged version
-echo "$VER" > "$SRC/version.txt" 
-echo "$VER" > "$ROOT/scripts/VERSION" 
+echo "$VER" > "$SRC/version.txt"
 
 # Build tarball
 tar -C "$SRC" -czf "$OUT/$ART" .
