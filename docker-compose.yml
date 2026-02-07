@@ -1,5 +1,6 @@
 services:
   dashboard:
+    user: "${UID}:${GID}"
     image: ai-fleet/dashboard:${VERSION}
     build: ./dashboard
     ports:

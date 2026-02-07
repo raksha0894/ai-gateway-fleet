@@ -38,7 +38,7 @@ def current_version() -> str:
     ver_file = os.path.join(CUR, "version.txt")
     if os.path.exists(ver_file):
         return open(ver_file, "r", encoding="utf-8").read().strip()
-    return "0.0.0"
+    return "1.0.0"
 
 
 def write_current_version(v: str) -> None:

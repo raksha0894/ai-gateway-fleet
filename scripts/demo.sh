@@ -24,7 +24,7 @@ if [[ "${1:-}" == "--rebuild" ]]; then
   ./build_ota.sh
   ./publish_ota.sh
 else
-  echo "[demo] Using prebuilt signed artifacts (no secrets needed)..."
+  echo "[demo] Using prebuilt signed artifacts..."
   cp -f ../ci/out/* ../dashboard/ota/
 fi
 sleep 5
