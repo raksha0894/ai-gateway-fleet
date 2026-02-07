@@ -29,7 +29,8 @@ services:
     volumes:
       - ./gateway/cache:/app/cache
       - ./gateway/data:/app/data
-      - ./gateway/cosign.pub:/app/cosign.pub:ro
+      - ./keys:/app/keys:ro
+      - ./keys/cosign.pub:/app/cosign.pub:ro
     depends_on:
       - dashboard
     networks:
@@ -47,7 +48,8 @@ services:
       - PYTHONUNBUFFERED=1
       - METRICS_SECONDS=10
     volumes:
-      - ./client/cosign.pub:/app/cosign.pub:ro
+      - ./keys:/app/keys:ro
+      - ./keys/cosign.pub:/app/cosign.pub:ro
       - ./client/state:/app/state
     depends_on:
       - gateway

@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib
  && curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
     -o /usr/local/bin/cosign \
  && chmod +x /usr/local/bin/cosign
+
+# Provide the public key to verify signatures
+COPY ./keys/cosign.pub /app/cosign.pub
  
 RUN pip install --no-cache-dir fastapi uvicorn httpx
 
