@@ -6,6 +6,12 @@ docker compose down -v
 docker compose up -d --build
 
 sleep 10
+OTA_DIR="$(cd "$(dirname "$0")/../dashboard/ota" && pwd)"
+
+if [ ! -w "$OTA_DIR" ]; then
+  echo "Fixing permissions on $OTA_DIR"
+  sudo chown -R "$USER":"$USER" "$OTA_DIR"
+fi
 echo "Publishing OTA..."
 if [[ "${1:-}" == "--rebuild" ]]; then
   if [[ -z "${COSIGN_PASSWORD:-}" ]]; then
