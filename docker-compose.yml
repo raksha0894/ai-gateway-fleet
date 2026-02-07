@@ -5,7 +5,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./dashboard/ota:/app/ota:ro
+      - ./dashboard/ota:/app/ota
     networks:
       - wan_net
 
