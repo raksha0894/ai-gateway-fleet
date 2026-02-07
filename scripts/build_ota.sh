@@ -9,6 +9,8 @@ VER="$(tr -d '\r\n\t' < "$ROOT/VERSION")"
 OUT="$ROOT/ci/out"
 SRC="$ROOT/ci/app"
 KEY="$ROOT/keys/cosign.key"
+#Whether to sign artifacts or not (default is true) 
+DO_SIGN="${DO_SIGN:-true}"
 
 mkdir -p "$OUT"
 
@@ -36,16 +38,19 @@ tar -C "$SRC" -czf "$OUT/$ART" .
 sha256sum "$OUT/$ART" | awk '{print $1}' > "$OUT/$SHA"
 
 # Cosign sign-blob bundle (offline verification friendly)
-if [[ ! -f "$KEY" ]]; then
-  echo "ERROR: cosign key not found at $KEY"
-  echo "Generate once: cosign generate-key-pair --output-key-prefix keys/cosign"
-  exit 1
-fi
+if [ "$DO_SIGN" = "true" ]; then
+  if [[ ! -f "$KEY" ]]; then
+    echo "Set DO_SIGN=false to skip signing."
+    exit 1
+  fi
 
-cosign sign-blob \
-  --key "$KEY" \
-  --bundle "$OUT/$BUNDLE" \
-  "$OUT/$ART"
+  cosign sign-blob \
+    --key "$KEY" \
+    --bundle "$OUT/$BUNDLE" \
+    "$OUT/$ART"
+else
+  echo "[build_ota] DO_SIGN=false; skipping signing step."
+fi
 
 # Manifest (what robot + gateway expect)
 cat > "$OUT/$MANIFEST" <<EOF

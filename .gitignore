@@ -13,9 +13,6 @@ ci/app/version.txt
 gateway/cache/
 client/state/
 
-# Keys / secrets
-**/cosign.pub
-
 # Python
 __pycache__/
 *.pyc

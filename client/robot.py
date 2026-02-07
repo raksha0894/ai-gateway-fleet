@@ -92,7 +92,7 @@ def install_tarball(tgz_path: str) -> None:
         log("SUCCESS: Healthcheck passed.")
     except subprocess.CalledProcessError:
         # 4. PERFORM ROLLBACK
-        FAILED_VERSIONS.add(client.get(f"{GATEWAY}/manifest", timeout=MANIFEST_TIMEOUT).json()["version"])
+        FAILED_VERSIONS.add(httpx.get(f"{GATEWAY}/manifest", timeout=MANIFEST_TIMEOUT).json()["version"])
         log("CRITICAL: Self-test failed! TRIGGERING ROLLBACK...")
         if os.path.exists(OLD):
             safe_rmtree(CUR)

@@ -8,10 +8,9 @@ docker compose up -d --build
 sleep 10
 OTA_DIR="$(cd "$(dirname "$0")/../dashboard/ota" && pwd)"
 
-if [ ! -w "$OTA_DIR" ]; then
-  echo "Fixing permissions on $OTA_DIR"
-  sudo chown -R "$USER":"$USER" "$OTA_DIR"
-fi
+mkdir -p "$OTA_DIR"
+chmod u+rwX "$OTA_DIR"
+
 echo "Simulating WAN offline..."
 docker network disconnect ai-gateway-fleet_wan_net ai-gateway-fleet-gateway-1
 sleep 20
@@ -26,6 +25,10 @@ if [[ "${1:-}" == "--rebuild" ]]; then
   echo "[demo] Rebuilding + signing OTA artifacts..."
   ./build_ota.sh
   ./publish_ota.sh
+  
+  else
+    DO_SIGN=false ./build_ota.sh
+    ./publish_ota.sh
 else
   echo "[demo] Using prebuilt signed artifacts..."
   cp -f ../ci/out/* ../dashboard/ota/
