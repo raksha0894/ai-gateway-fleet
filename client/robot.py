@@ -176,8 +176,6 @@ while True:
                 finally:
                     installing = False
         except Exception as e:
-
-            log(f"OTA failed: {e}")
             if newv is not None:
                 FAILED_VERSIONS.add(newv)
                 if rollback_to_old():

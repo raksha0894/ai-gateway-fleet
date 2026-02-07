@@ -12,6 +12,9 @@ if [ ! -w "$OTA_DIR" ]; then
   echo "Fixing permissions on $OTA_DIR"
   sudo chown -R "$USER":"$USER" "$OTA_DIR"
 fi
+echo "Simulating WAN offline..."
+docker network disconnect ai-gateway-fleet_wan_net ai-gateway-fleet-gateway-1
+sleep 20
 echo "Publishing OTA..."
 if [[ "${1:-}" == "--rebuild" ]]; then
   if [[ -z "${COSIGN_PASSWORD:-}" ]]; then
@@ -29,19 +32,26 @@ else
 fi
 sleep 5
 
-echo "Simulating WAN offline..."
+echo "Restoring WAN: Online..."
+docker network connect ai-gateway-fleet_wan_net ai-gateway-fleet-gateway-1
+echo "[demo] Gateway trying package download..."
+set +e
+timeout 1m docker compose logs -f gateway
+set -e
+echo "Gateway disconnects from WAN again..."
 docker network disconnect ai-gateway-fleet_wan_net ai-gateway-fleet-gateway-1
 sleep 20
 
-echo "Restoring WAN: Online... [NOW]"
-docker network connect ai-gateway-fleet_wan_net ai-gateway-fleet-gateway-1
-sleep 20
-
 # Follow robot logs
-echo "[demo] Follow Robot logs..."
+echo "[demo] Robot requests update from gateway. Installs after verification. Rollsback if update is bad.."
+echo "[demo] Robot sends metrics to gateway..."
 set +e
 timeout 1m docker compose logs -f robot
 set -e
+
+
+echo "Restoring WAN: Gateway reconnects and forwards metrics..."
+docker network connect ai-gateway-fleet_wan_net ai-gateway-fleet-gateway-1
 
 # Get current version
 NEW_VERSION=$(docker compose exec -T robot cat /app/state/current/version.txt)
@@ -55,7 +65,7 @@ while [ "$COUNT" -lt 5 ]; do
   fi
   sleep 2
 done
-echo "[demo] Updated metrics from the dashboard..."
-sleep 5
+echo "[demo] Dashboard with updated metrics..."
+sleep 12
 curl -fsS http://localhost:8080/status
 echo "[demo] OTA verified successfully..."
