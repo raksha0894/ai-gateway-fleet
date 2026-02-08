@@ -43,8 +43,7 @@ cd ai-gateway-fleet
 ```text
 ./scripts/demo.sh
 ```
-Note: Use pre-built signed OTA artifacts (no secrets required)
-Note: In some environments file ownership for mounted volumes need to be fixed using the following command -
+Note: Use pre-built signed OTA artifacts (no secrets required). In some environments file ownership for mounted volumes need to be fixed using the following command -
 ```text
 sudo chown -R $USER:$USER ./dashboard
 ```
@@ -62,6 +61,7 @@ The demo simulates the following scenario:
 4. Robot requests update from gateway and installs it.
 5. Gateway reconnects later and forwards metrics to dashboard.
 6. Dashboard shows the robot’s updated version and health.
+
 
 
 
