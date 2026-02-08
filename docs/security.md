@@ -102,22 +102,24 @@ Robots never install packages not referenced by a valid manifest.
 
 ### Threat Actors
 
-Actor	                     Description
-External Attacker	         MITM, malicious server
-Compromised Gateway	         Tampered cache
-Insider Threat	             Malicious signing
-Network Attacker	         Replay/injection
+|Actor                |	         Description             |
+----------------------------------------------------------
+|External Attacker    |	         MITM, malicious server  |
+|Compromised Gateway  |          Tampered cache          |
+|Insider Threat	      |          Malicious signing       |
+|Network Attacker     |	         Replay/injection        |
 
 
 ### Threats & Mitigations
 
-Threat	                    Mitigation
-Tampered OTA	            SHA256 + Cosign
-MITM	                    Signature validation
-Replay attack	            Version tracking
-Malicious update	    Health check + rollback
-Corrupt cache	            Re-verification
-Partial download	    Resumable + checksum
+|Threat              |	    Mitigation                   |
+----------------------------------------------------------
+|Tampered OTA	     |      SHA256 + Cosign              |
+|MITM	             |      Signature validation         |
+|Replay attack	     |      Version tracking             |
+|Malicious update    |	    Health check + rollback      |
+|Corrupt cache	     |      Re-verification              |
+|Partial download    |	    Resumable + checksum         |
 
 
 ### Rollback & Safety
@@ -226,6 +228,7 @@ Robot ↔ Gateway ↔ Central
 1. SBOM and attestation files are generated during build
 2. Bundled with OTA artifacts
 3. Verified via cosign
+
 
 
 
