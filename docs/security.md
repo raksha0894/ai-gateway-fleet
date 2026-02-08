@@ -3,12 +3,12 @@
 1. Overview
 
 This document describes the security model of the AI Gateway Fleet OTA system, focusing on:
-	•	Artifact integrity
-	•	Authenticity verification
-	•	Offline-first validation
-	•	Rollback safety
-	•	Threat mitigation
-	•	Key management and rotation
+1. Artifact integrity
+2. Authenticity verification
+3. Offline-first validation
+4. Rollback safety
+5. Threat mitigation
+6. Key management and rotation
 
 The system is designed to operate securely under intermittent connectivity and fully offline robot environments.
 
@@ -16,27 +16,28 @@ The system is designed to operate securely under intermittent connectivity and f
 2. Security Goals
 
 The system is designed to guarantee:
-	1.	Integrity – OTA packages cannot be modified without detection.
-	2.	Authenticity – Only trusted publishers can issue updates.
-	3.	Offline Verification – Robots verify updates without internet access.
-	4.	Resilience – Failed or malicious updates are rolled back automatically.
-	5.	Least Trust – Robots never trust the internet or external sources directly.
+1. Integrity – OTA packages cannot be modified without detection.
+2. Authenticity – Only trusted publishers can issue updates.
+3. Offline Verification – Robots verify updates without internet access.
+4. Resilience – Failed or malicious updates are rolled back automatically.
+5. Least Trust – Robots never trust the internet or external sources directly.
 
 
-3. Trust Model
+6. Trust Model
 
 Root of Trust
 
 The system uses Cosign public/private key pairs as the root of trust.
-	•	Private key: Used in CI / build pipeline
-	•	Public key: Embedded in Gateway and Robot containers
+1. Private key: Used in CI / build pipeline
+2. Public key: Embedded in Gateway and Robot containers
 
+```text
 CI / Publisher (private key)
         ↓
    Signed Artifacts
         ↓
 Gateway / Robot (public key)
-
+```
 Robots and gateways trust only artifacts signed by the known public key.
 
 
@@ -45,33 +46,34 @@ Robots and gateways trust only artifacts signed by the known public key.
 4.1 Signing (CI / Build Stage)
 
 During OTA package creation:
-	1.	Application is packaged into .tar.gz
-	2.	SHA256 checksum is computed
-	3.	Cosign signs the artifact
-	4.	Signature bundle is produced
+1. Application is packaged into .tar.gz
+2. SHA256 checksum is computed
+3. Cosign signs the artifact
+4. Signature bundle is produced
 
 Tools:
-	•	cosign sign-blob
+cosign sign-blob
 
 Outputs:
-	•	app-vX.tar.gz
-	•	app-vX.tar.gz.bundle
-	•	app-vX.sha256
-	•	manifest.json
+1. app-vX.tar.gz
+2. app-vX.tar.gz.bundle
+3. app-vX.sha256
+4. manifest.json
 
 
 4.2 Verification (Gateway & Robot)
 
 Before installation, the robot performs:
-	1.	SHA256 verification
-	2.	Cosign signature verification
+1. SHA256 verification
+2. Cosign signature verification
 
 Example:
-
+```text
 cosign verify-blob \
   --key cosign.pub \
   --bundle artifact.bundle \
   artifact.tar.gz
+```
 
 No network access is required.
 
@@ -79,19 +81,19 @@ No network access is required.
 5. Manifest Security
 
 Each release includes a signed manifest:
-
+```text
 {
   "version": "1.9.5",
   "artifact": "app-v1.9.5.tar.gz",
   "bundle": "app-v1.9.5.tar.gz.bundle",
   "sha256": "..."
 }
-
+```
 Security properties:
-	•	Immutable version mapping
-	•	Strong checksum binding
-	•	Signed artifact references
-	•	Prevents downgrade/replay attacks
+1. Immutable version mapping
+2. Strong checksum binding
+3. Signed artifact references
+4. Prevents downgrade/replay attacks
 
 Robots never install packages not referenced by a valid manifest.
 
@@ -128,62 +130,63 @@ Each robot maintains:
   └── old/
 
 Update flow:
-	1.	Download → new/
-	2.	Verify
-	3.	Activate → current/
-	4.	Run self-test
-	5.	On failure → restore old/
+1. Download → new/
+2. Verify
+3. Activate → current/
+4. Run self-test
+5. On failure → restore old/
 
 Guarantees:
-	•	No broken deployment persists
-	•	Safe fallback
+1. No broken deployment persists
+2. Safe fallback
 
 
 8. Telemetry Security
 
 Current Design
-	•	Robots send metrics over internal edge network
-	•	Gateways buffer in SQLite
-	•	Forward when online
+1. Robots send metrics over internal edge network
+2. Gateways buffer in SQLite
+3. Forward when online
 
 Security properties:
-	•	No direct internet exposure
-	•	Limited attack surface
-	•	Store-and-forward resilience
+1. No direct internet exposure
+2. Limited attack surface
+3. Store-and-forward resilience
 
 Future Hardening
-	•	mTLS
-	•	Message signing
-	•	Auth tokens
-	•	Gateway identity certs
+1. mTLS
+2. Message signing
+3. Auth tokens
+4. Gateway identity certs
 
 
 9. Key Management & Rotation
 
 Current Model
-	•	Static cosign key pair
-	•	Public key baked into containers
-	•	Private key in CI environment
+1. Static cosign key pair
+2. Public key baked into containers
+3. Private key in CI environment
 
 Rotation Process (Planned)
-	1.	Generate new key pair
-	2.	Publish new public key
-	3.	Update containers
-	4.	Dual-sign releases
-	5.	Deprecate old key
+1. Generate new key pair
+2. Publish new public key
+3. Update containers
+4. Dual-sign releases
+5. Deprecate old key
 
+```text
 Key v1 → Key v2 (overlap period) → Retire v1
-
+```
 Ensures zero-downtime rotation.
 
 
 10. Offline Security Guarantees
 
 Robots can fully verify updates while offline:
-	•	Public key stored locally
-	•	Bundled signatures
-	•	Cached artifacts
-	•	Local manifest
+1. Public key stored locally
+2. Bundled signatures
+3. Cached artifacts
+4. Local manifest
 
 No external trust dependency exists at install time.
 
@@ -191,37 +194,38 @@ No external trust dependency exists at install time.
 11. Future Security Architecture (Planned)
 
 mTLS Communication
-
+```text
 Robot ↔ Gateway ↔ Central
    (cert-authenticated)
-
-	•	Mutual authentication
-	•	Encrypted channels
-	•	Revocable identities
+```
+1. Mutual authentication
+2. Encrypted channels
+3. Revocable identities
 
 
 Multi-Gateway Trust Federation
-	•	Central CA
-	•	Per-gateway certs
-	•	Signed routing metadata
+1. Central CI
+2. Per-gateway certs
+3. Signed routing metadata
 
 
 Secure Supply Chain
-	•	Reproducible builds
-	•	SLSA compliance
-	•	Provenance verification
-	•	Continuous attestation
+1. Reproducible builds
+2. SLSA compliance
+3. Provenance verification
+4. Continuous attestation
 
 
 Delta & Patch Signing
-	•	Binary diffs
-	•	Signed patches
-	•	Reduced bandwidth
-	•	Verified transitions
+1. Binary diffs
+2. Signed patches
+3. Reduced bandwidth
+4. Verified transitions
 
 SBOM & Attestations
-	•	SBOM and attestation files are generated during build
-	•	Bundled with OTA artifacts
-	•	Verified via cosign
+1. SBOM and attestation files are generated during build
+2. Bundled with OTA artifacts
+3. Verified via cosign
+
 
 
