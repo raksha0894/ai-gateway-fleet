@@ -3,8 +3,7 @@
 This document outlines the architecture and internal design of the
 AI Gateway Fleet OTA (Over-The-Air) update system.
 
-The system enables secure, resilient software updates and telemetry
-aggregation in environments with intermittent connectivity.
+The system enables secure, resilient software updates and telemetry in environments with intermittent connectivity.
 
 
 ## 1. High-Level Architecture
@@ -401,6 +400,7 @@ Pipeline:
 3. Fleet-level rollout policies
 4. Canary deployments
 5. Telemetry aggregation
+
 
 
 
