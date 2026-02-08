@@ -1,6 +1,6 @@
-## Security Architecture – AI Gateway Fleet OTA
+# Security Architecture – AI Gateway Fleet OTA
 
-1. Overview
+## Overview
 
 This document describes the security model of the AI Gateway Fleet OTA system, focusing on:
 1. Artifact integrity
@@ -13,7 +13,7 @@ This document describes the security model of the AI Gateway Fleet OTA system, f
 The system is designed to operate securely under intermittent connectivity and fully offline robot environments.
 
 
-2. Security Goals
+## Security Goals
 
 The system is designed to guarantee:
 1. Integrity – OTA packages cannot be modified without detection.
@@ -23,9 +23,9 @@ The system is designed to guarantee:
 5. Least Trust – Robots never trust the internet or external sources directly.
 
 
-6. Trust Model
+## Trust Model
 
-Root of Trust
+### Root of Trust
 
 The system uses Cosign public/private key pairs as the root of trust.
 1. Private key: Used in CI / build pipeline
@@ -41,9 +41,9 @@ Gateway / Robot (public key)
 Robots and gateways trust only artifacts signed by the known public key.
 
 
-4. Artifact Signing & Verification
+## Artifact Signing & Verification
 
-4.1 Signing (CI / Build Stage)
+### Signing (CI / Build Stage)
 
 During OTA package creation:
 1. Application is packaged into .tar.gz
@@ -51,17 +51,17 @@ During OTA package creation:
 3. Cosign signs the artifact
 4. Signature bundle is produced
 
-Tools:
+#### Tools:
 cosign sign-blob
 
-Outputs:
+#### Outputs:
 1. app-vX.tar.gz
 2. app-vX.tar.gz.bundle
 3. app-vX.sha256
 4. manifest.json
 
 
-4.2 Verification (Gateway & Robot)
+### Verification (Gateway & Robot)
 
 Before installation, the robot performs:
 1. SHA256 verification
@@ -78,7 +78,7 @@ cosign verify-blob \
 No network access is required.
 
 
-5. Manifest Security
+## Manifest Security
 
 Each release includes a signed manifest:
 ```text
@@ -98,9 +98,9 @@ Security properties:
 Robots never install packages not referenced by a valid manifest.
 
 
-6. Threat Model
+## Threat Model
 
-6.1 Threat Actors
+### Threat Actors
 
 Actor	                     Description
 External Attacker	         MITM, malicious server
@@ -109,65 +109,65 @@ Insider Threat	             Malicious signing
 Network Attacker	         Replay/injection
 
 
-6.2 Threats & Mitigations
+### Threats & Mitigations
 
 Threat	                    Mitigation
 Tampered OTA	            SHA256 + Cosign
 MITM	                    Signature validation
 Replay attack	            Version tracking
-Malicious update	        Health check + rollback
+Malicious update	    Health check + rollback
 Corrupt cache	            Re-verification
-Partial download	        Resumable + checksum
+Partial download	    Resumable + checksum
 
 
-7. Rollback & Safety
+### Rollback & Safety
 
 Each robot maintains:
-
+```text
 /app/state/
   ├── current/
   ├── new/
   └── old/
-
-Update flow:
+```
+#### Update flow:
 1. Download → new/
 2. Verify
 3. Activate → current/
 4. Run self-test
 5. On failure → restore old/
 
-Guarantees:
+#### Guarantees:
 1. No broken deployment persists
 2. Safe fallback
 
 
-8. Telemetry Security
+## Telemetry Security
 
-Current Design
+### Current Design
 1. Robots send metrics over internal edge network
 2. Gateways buffer in SQLite
 3. Forward when online
 
-Security properties:
+### Security properties:
 1. No direct internet exposure
 2. Limited attack surface
 3. Store-and-forward resilience
 
-Future Hardening
+### Future Hardening
 1. mTLS
 2. Message signing
 3. Auth tokens
 4. Gateway identity certs
 
 
-9. Key Management & Rotation
+## Key Management & Rotation
 
-Current Model
+### Current Model
 1. Static cosign key pair
 2. Public key baked into containers
 3. Private key in CI environment
 
-Rotation Process (Planned)
+### Rotation Process (Planned)
 1. Generate new key pair
 2. Publish new public key
 3. Update containers
@@ -180,7 +180,7 @@ Key v1 → Key v2 (overlap period) → Retire v1
 Ensures zero-downtime rotation.
 
 
-10. Offline Security Guarantees
+## Offline Security Guarantees
 
 Robots can fully verify updates while offline:
 1. Public key stored locally
@@ -191,9 +191,9 @@ Robots can fully verify updates while offline:
 No external trust dependency exists at install time.
 
 
-11. Future Security Architecture (Planned)
+## Future Security Architecture (Planned)
 
-mTLS Communication
+### mTLS Communication
 ```text
 Robot ↔ Gateway ↔ Central
    (cert-authenticated)
@@ -203,29 +203,30 @@ Robot ↔ Gateway ↔ Central
 3. Revocable identities
 
 
-Multi-Gateway Trust Federation
-1. Central CI
+### Multi-Gateway Trust Federation
+1. Central CA
 2. Per-gateway certs
 3. Signed routing metadata
 
 
-Secure Supply Chain
+### Secure Supply Chain
 1. Reproducible builds
 2. SLSA compliance
 3. Provenance verification
 4. Continuous attestation
 
 
-Delta & Patch Signing
+### Delta & Patch Signing
 1. Binary diffs
 2. Signed patches
 3. Reduced bandwidth
 4. Verified transitions
 
-SBOM & Attestations
+### SBOM & Attestations
 1. SBOM and attestation files are generated during build
 2. Bundled with OTA artifacts
 3. Verified via cosign
+
 
 
 
