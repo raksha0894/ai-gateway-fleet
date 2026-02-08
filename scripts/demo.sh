@@ -29,14 +29,14 @@ if [[ "${1:-}" == "--rebuild" ]]; then
   fi
 
   echo "[demo] Rebuilding + signing OTA artifacts..."
-  ./build_ota.sh
-  ./publish_ota.sh
+  ./scripts/build_ota.sh
+  ./scripts/publish_ota.sh
 else
   echo "[demo] Using prebuilt signed artifacts..."
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   VER="$(tr -d '\r\n\t' < "$ROOT/VERSION")"
   echo "The update version is $VER"
-  ./publish_ota.sh
+  ./scripts/publish_ota.sh
 fi
 sleep 5
 
