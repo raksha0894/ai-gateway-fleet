@@ -24,7 +24,7 @@ echo "Publishing OTA..."
 if [[ "${1:-}" == "--rebuild" ]]; then
   if [[ -z "${COSIGN_PASSWORD:-}" ]]; then
     echo "[demo] COSIGN_PASSWORD not set. Run:"
-    echo "  COSIGN_PASSWORD='...' ./demo.sh --rebuild"
+    echo "  COSIGN_PASSWORD='...' ./scripts/demo.sh --rebuild"
     exit 1
   fi
 
