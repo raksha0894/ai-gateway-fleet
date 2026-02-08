@@ -56,12 +56,13 @@ COSIGN_PASSWORD=<password> ./scripts/demo.sh --rebuild
 
 ## 🧪 Demo Scenario
 The demo simulates the following scenario: 
-a. Gateway initially offline.
-b. Central publishes new version.
-c. Gateway comes online, downloads package, goes offline again.
-d. Robot requests update from gateway and installs it.
-e. Gateway reconnects later and forwards metrics to dashboard.
-f. Dashboard shows the robot’s updated version and health.
+1. Gateway initially offline.
+2. Central publishes new version.
+3. Gateway comes online, downloads package, goes offline again.
+4. Robot requests update from gateway and installs it.
+5. Gateway reconnects later and forwards metrics to dashboard.
+6. Dashboard shows the robot’s updated version and health.
+
 
 
 
