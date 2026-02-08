@@ -37,7 +37,7 @@ Gateways buffer data when WAN is unavailable.
 
 #### Step-by-Step Flow
 
-1. Metric Collection (Robot)
+##### Metric Collection (Robot)
 Each robot periodically generates telemetry:
 1. CPU
 2. Memory
@@ -47,7 +47,7 @@ Each robot periodically generates telemetry:
 This is sent to the gateway via:
 POST /metrics
 
-2. Local Persistence (Gateway – SQLite)
+##### Local Persistence (Gateway – SQLite)
 Upon receiving telemetry, the gateway:
 1. Writes records to SQLite
 2. Assigns timestamps
@@ -57,7 +57,7 @@ SQLite acts as a durable queue.
 This prevents data loss during outages.
 
 
-3. Forwarding to Central Server
+##### Forwarding to Central Server
 The gateway runs a background forwarder that:
 1. Reads pending records
 2. Sends them to the dashboard
@@ -144,7 +144,7 @@ Both Gateway and Robot components perform independent validation.
 
 #### Step-by-Step Flow
 
-1. Manifest Publication
+##### Manifest Publication
 
 The artifacts are published on the endpoint /dashboard/ota from the CI output directory and contains the following -
 1. manifest.json
@@ -162,7 +162,7 @@ The artifacts are published on the endpoint /dashboard/ota from the CI output di
 
 This forms the authoritative release record.
 
-2. Gateway Polling and Caching
+##### Gateway Polling and Caching
 The gateway periodically polls:
 ```text
 GET /manifest
@@ -179,7 +179,7 @@ Only verified artifacts are cached.
 
 The gateway acts as a trust boundary and distribution hub.
 
-3. Robot Polling and Installation
+##### Robot Polling and Installation
 
 The robot periodically polls the gateway enpoint (GET /manifest) for updates.
 
@@ -302,6 +302,8 @@ app-v1.2.3.tar.gz.part → app-v1.2.3.tar.gz
 ```
 This enables recovery from network drops.
 
+![Step-4](../pics/demo5.jpg "Resumable download")
+
 ### 2.3 Robot
 
 The Robot is the final update consumer.
@@ -341,7 +343,7 @@ Process:
 4. Status reported
 
 Rollback is automatic and requires no manual intervention.
-
+![Step-5](../pics/demo4_rollback.jpg "Rollback demo")
 
 #### Resumable Downloads
 
@@ -358,7 +360,7 @@ Example:
 app-v1.2.3.tar.gz.part → app-v1.2.3.tar.gz
 ```
 This enables recovery from network drops.
-
+![Step-4](../pics/demo5.jpg "Resumable download")
 
 ## 3. Building and Signing Artifacts
 
@@ -379,5 +381,6 @@ Pipeline:
 3. Fleet-level rollout policies
 4. Canary deployments
 5. Telemetry aggregation
+
 
 
