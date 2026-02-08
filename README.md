@@ -8,7 +8,7 @@ including artifact signing, resumable downloads, offline recovery, and rollback 
 
 The system consists of:
 
-- **Gateway** – Manages OTA downloads, verification, and caching
+- **Gateway** – Manages OTA downloads, verification, and caching alongside storing and forwarding telemetry onto the dashbord
 - **Robot** – Verifies and applies updates and reports metrics
 - **Dashboard** – Displays fleet metrics
 - **Central Server** – Hosts signed artifacts
@@ -62,6 +62,7 @@ The demo simulates the following scenario:
 4. Robot requests update from gateway and installs it.
 5. Gateway reconnects later and forwards metrics to dashboard.
 6. Dashboard shows the robot’s updated version and health.
+
 
 
 
