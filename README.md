@@ -37,8 +37,8 @@ when using prebuilt artifacts (default demo mode).
 
 ## 🚀 Quick Start (Recommended)
 1. First clone the git repository
-git clone https://github.com/raksha0894/ai-gateway-fleet.git
-cd ai-gateway-fleet
+- git clone https://github.com/raksha0894/ai-gateway-fleet.git
+- cd ai-gateway-fleet
 2. Execute the following command -
 ```text
 ./scripts/demo.sh
@@ -62,6 +62,7 @@ The demo simulates the following scenario:
 4. Robot requests update from gateway and installs it.
 5. Gateway reconnects later and forwards metrics to dashboard.
 6. Dashboard shows the robot’s updated version and health.
+
 
 
 
