@@ -50,7 +50,7 @@ sudo chown -R $USER:$USER ./dashboard
 ![Step-1](pics/demo1.jpg "Demo Step 1")
 ![Step-2](pics/demo2.jpg "Demo Step 2")
 ![Step-3](pics/demo3.jpg "Demo Step 3")
-Alternatively, if one wants to build & sign artifacts additionally - be sure to have the cosign.key in the /keys folder. Then execute the following command -
+Alternatively, if one wants to build & sign artifacts additionally - be sure to have the private key (cosign.key) in the /keys folder. Then execute the following command -
 ```text
 COSIGN_PASSWORD=<password> ./scripts/demo.sh --rebuild
 ```
@@ -62,6 +62,7 @@ The demo simulates the following scenario:
 4. Robot requests update from gateway and installs it.
 5. Gateway reconnects later and forwards metrics to dashboard.
 6. Dashboard shows the robot’s updated version and health.
+
 
 
 
