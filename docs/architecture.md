@@ -94,7 +94,7 @@ Central Server  <==== wan_net ====>  Gateway  <============ edge_net ===========
    |                                  |-- GC cache (Bounded)                          |
    |                                  |                                               |
    |                                  |<----------------------------------------------|  poll manifest (every 30s)
-   |                                  |                                               |-- download + verify (cosign)
+   |                                  |                                               |-- download + verify (checksum + cosign)
    |                                  |                                               |-- install (verification ✅)/rollback (verification ❌)
    |                                  |                                               | 
 ```
@@ -113,7 +113,7 @@ It ensures:
 ##### Online Update Flow
 
 1. CI builds artifacts
-2. Dashboard publishes OTA files
+2. Central Server publishes OTA files
 3. Gateway polls dashboard
 4. Gateway downloads files
 5. Gateway verifies signature
@@ -381,6 +381,7 @@ Pipeline:
 3. Fleet-level rollout policies
 4. Canary deployments
 5. Telemetry aggregation
+
 
 
 
