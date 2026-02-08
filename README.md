@@ -40,12 +40,19 @@ when using prebuilt artifacts (default demo mode).
 git clone https://github.com/raksha0894/ai-gateway-fleet.git
 cd ai-gateway-fleet
 2. Execute the following command -
+```text
 ./scripts/demo.sh
+```
 Note: Use pre-built signed OTA artifacts (no secrets required)
-Note: In some environments file ownership for mounted volumes need to be fixed using (sudo chown -R $USER:$USER ./dashboard)
+Note: In some environments file ownership for mounted volumes need to be fixed using the following command -
+```text
+sudo chown -R $USER:$USER ./dashboard
+```
 
 Alternatively, if one wants to build & sign artifacts additionally - be sure to have the cosign.key in the /keys folder. Then execute the following command -
+```text
 COSIGN_PASSWORD=<password> ./scripts/demo.sh --rebuild
+```
 
 ## 🧪 Demo Scenario
 The demo simulates the following scenario: 
@@ -55,6 +62,7 @@ c. Gateway comes online, downloads package, goes offline again.
 d. Robot requests update from gateway and installs it.
 e. Gateway reconnects later and forwards metrics to dashboard.
 f. Dashboard shows the robot’s updated version and health.
+
 
 
 
