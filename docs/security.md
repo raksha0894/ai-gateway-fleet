@@ -193,7 +193,7 @@ Robots can fully verify updates while offline:
 No external trust dependency exists at install time.
 
 
-## Future Security Architecture (Planned)
+## Future Security Architecture
 
 ### mTLS Communication
 ```text
@@ -228,6 +228,7 @@ Robot ↔ Gateway ↔ Central
 1. SBOM and attestation files are generated during build
 2. Bundled with OTA artifacts
 3. Verified via cosign
+
 
 
 
