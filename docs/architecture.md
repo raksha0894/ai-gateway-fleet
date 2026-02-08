@@ -10,47 +10,48 @@ aggregation in environments with intermittent connectivity.
 ## 1. High-Level Architecture
 
 This system is built around two primary data pipelines:
-    1.  Telemetry Pipeline – responsible for reliably collecting and forwarding operational metrics.
-	2.	OTA Update Pipeline – responsible for securely delivering and installing software updates.	
+1. Telemetry Pipeline – responsible for reliably collecting and forwarding operational metrics.
+2. OTA Update Pipeline – responsible for securely delivering and installing software updates.	
 
 Both pipelines are designed to function under unreliable network conditions and provide strong guarantees for correctness and durability.
 
 ### Telemetry Pipeline
-
+```text
 Central Server  <==== wan_net ====>   Gateway  <==== edge_net ====>  Robot
 |                                       |                             |
 |                                       |                             |
 |                                       |                             |
 Metrics <–––––––––––––––––   SQLite Telemetry DB <–––––––––––––––Telemetry Agent
                            (Store and Forward Mechanism)
+```
 
 #### Overview
 The telemetry pipeline collects metrics from robots and delivers them reliably to the central server, even when connectivity is intermittent.
 It uses a store-and-forward model.
 
 #### Telemetry Flow
-
+```text
 Robot → Gateway → Dashboard (Central Server)
-
+```
 Gateways buffer data when WAN is unavailable.
 
 #### Step-by-Step Flow
 
 1. Metric Collection (Robot)
 Each robot periodically generates telemetry:
-	•	CPU
-	•	Memory
-	•	Version
-	•	Health
+1. CPU
+2. Memory
+3. Version
+4. Health
 
 This is sent to the gateway via:
 POST /metrics
 
 2. Local Persistence (Gateway – SQLite)
 Upon receiving telemetry, the gateway:
-	1.	Writes records to SQLite
-	2.	Assigns timestamps
-	3.	Marks records as pending
+1. Writes records to SQLite
+2. Assigns timestamps
+3. Marks records as pending
 
 SQLite acts as a durable queue.
 This prevents data loss during outages.
@@ -58,21 +59,21 @@ This prevents data loss during outages.
 
 3. Forwarding to Central Server
 The gateway runs a background forwarder that:
-	1.	Reads pending records
-	2.	Sends them to the dashboard
-	3.	Marks successful sends
-	4.	Deletes confirmed rows
+1. Reads pending records
+2. Sends them to the dashboard
+3. Marks successful sends
+4. Deletes confirmed rows
 
 If WAN is down, records remain stored.
 
 #### Store-and-Forward Behavior
-
+```text
 Offline → Buffer → Reconnect → Flush
-
+```
 This ensures:
-	•	No metric loss
-	•	Ordered delivery
-	•	Crash-safe recovery
+1. No metric loss
+2. Ordered delivery
+3. Crash-safe recovery
 
 #### Failure Handling
 
@@ -84,7 +85,7 @@ This ensures:
 
 
 ### OTA Update Pipeline
-
+```text
 Central Server  <==== wan_net ====>  Gateway  <============ edge_net ============>  Robot
    |                                  |                                               |
    |                                  |                                               |
@@ -96,16 +97,16 @@ Central Server  <==== wan_net ====>  Gateway  <============ edge_net ===========
    |                                  |                                               |-- download + verify (cosign)
    |                                  |                                               |-- install (verification ✅)/rollback (verification ❌)
    |                                  |                                               | 
-
+```
 #### Overview
 
 The OTA update pipeline is a pull-based, multi-stage process that delivers signed software artifacts from the cloud to robots via gateways.
 
 It ensures:
-	•	End-to-end integrity
-	•	Authenticity verification
-	•	Fault tolerance
-	•	Automatic recovery
+1. End-to-end integrity
+2. Authenticity verification
+3. Fault tolerance
+4. Automatic recovery
 
 #### Update Flow
 
@@ -122,8 +123,9 @@ It ensures:
 9. Robot verifies files
 10. Robot installs update
 
+```text
 Central Server → Gateway → Robot
-
+```
 
 ##### Offline Update Flow
 
@@ -134,7 +136,9 @@ If WAN is unavailable:
 3. Robot verifies files
 4. Robot installs update
 
+```text
 Gateway (cached) → Robot
+```
 
 Both Gateway and Robot components perform independent validation.
 
@@ -143,31 +147,33 @@ Both Gateway and Robot components perform independent validation.
 1. Manifest Publication
 
 The artifacts are published on the endpoint /dashboard/ota from the CI output directory and contains the following -
-	•	manifest.json
-	•	Compressed artifact (.tar.gz)
-	•	Cosign bundle
-	•	SHA256 checksum
+1. manifest.json
+2. Compressed artifact (.tar.gz)
+3. Cosign bundle
+4. SHA256 checksum
 
+```text
 /dashboard/ota/
 ├── app-vX.Y.Z.tar.gz
 ├── app-vX.Y.Z.tar.gz.bundle
 ├── app-vX.Y.Z.sha256
 └── manifest.json
+```
 
 This forms the authoritative release record.
 
 2. Gateway Polling and Caching
 The gateway periodically polls:
-
+```text
 GET /manifest
-
+```
 When a new version is detected:
-	1.	Downloads artifact and bundle
-	2.	Uses resumable downloads
-	3.	Verifies checksum
-	4.	Verifies signature (cosign)
-	5.	Stores artifacts in local cache
-	6.	Applies garbage collection
+1. Downloads artifact and bundle
+2. Uses resumable downloads
+3. Verifies checksum
+4. Verifies signature (cosign)
+5. Stores artifacts in local cache
+6. Applies garbage collection
 
 Only verified artifacts are cached.
 
@@ -178,14 +184,14 @@ The gateway acts as a trust boundary and distribution hub.
 The robot periodically polls the gateway enpoint (GET /manifest) for updates.
 
 If a newer version exists:
-	1.	Downloads artifacts from gateway
-	2.	Resumes interrupted downloads
-	3.	Verifies checksum
-	4.	Verifies cosign signature
-	5.	Extracts into NEW directory
-	6.	Activates atomically
-	7.	Runs self-test
-	8.	Rolls back on failure
+1. Downloads artifacts from gateway
+2. Resumes interrupted downloads
+3. Verifies checksum
+4. Verifies cosign signature
+5. Extracts into NEW directory
+6. Activates atomically
+7. Runs self-test
+8. Rolls back on failure
 
 Updates are committed only after passing validation.
 
@@ -193,11 +199,12 @@ Updates are committed only after passing validation.
 
 The robot maintains three directories:
 
+```text
 NEW → CURRENT → OLD
-
+```
 This enables:
-	•	Instant rollback
-	•	Crash-safe upgrades
+1. Instant rollback
+2. Crash-safe upgrades
 
 If any validation fails, the robot reverts automatically.
 
@@ -230,10 +237,10 @@ The Central Server is the source of truth for OTA updates.
 
 Responsibilities:
 
-- Hosts OTA artifacts
-- Publishes version manifests
-- Exposes `/ota` endpoint for updates
-- Exposes `/status` endpoint for viewing the metrics on the dashboard
+1. Hosts OTA artifacts
+2. Publishes version manifests
+3. Exposes `/ota` endpoint for updates
+4. Exposes `/status` endpoint for viewing the metrics on the dashboard
 
 The artifact files are generated by CI scripts and signed using Cosign.
 
@@ -243,21 +250,20 @@ The artifact files are generated by CI scripts and signed using Cosign.
 The Gateway acts as an intermediary between cloud and robots.
 
 Responsibilities:
-
-- Polls Dashboard for updates
-- Downloads OTA artifacts (resumable)
-- Verifies signatures
-- Manages local cache
-- Serves OTA files to robots
-- Supports offline operation
+1. Polls Dashboard for updates
+2. Downloads OTA artifacts (resumable)
+3. Verifies signatures
+4. Manages local cache
+5. Serves OTA files to robots
+6. Supports offline operation
 
 Cache layout:
-
+```text
 /app/cache/
 ├── app-v1.2.3.tar.gz
 ├── app-v1.2.3.bundle
 └── manifest.json
-
+```
 #### Cache Management
 
 Gateway cache is bounded by:
@@ -267,11 +273,11 @@ Gateway cache is bounded by:
 - Garbage collection
 
 Configuration:
-
+```text
 CACHE_KEEP_VERSIONS
 CACHE_MAX_MB
 CACHE_GC_INTERVAL
-
+```
 Garbage collection removes:
 
 - Old versions
@@ -291,9 +297,9 @@ Implementation:
 - Atomic rename on completion
 
 Example:
-
+```text
 app-v1.2.3.tar.gz.part → app-v1.2.3.tar.gz
-
+```
 This enables recovery from network drops.
 
 ### 2.3 Robot
@@ -348,9 +354,9 @@ Implementation:
 - Atomic rename on completion
 
 Example:
-
+```text
 app-v1.2.3.tar.gz.part → app-v1.2.3.tar.gz
-
+```
 This enables recovery from network drops.
 
 
@@ -367,10 +373,11 @@ Pipeline:
 5. Generate manifest
 6. Publish artifacts
 
-## 4. Planned enhancements:
-	•	Delta updates
-	•	Multi-robot orchestration
-	•	Fleet-level rollout policies
-	•	Canary deployments
-	•	Telemetry aggregation
+## 4. Future enhancements:
+1. Delta updates
+2. Multi-robot orchestration
+3. Fleet-level rollout policies
+4. Canary deployments
+5. Telemetry aggregation
+
 
